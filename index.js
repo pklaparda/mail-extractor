@@ -2,13 +2,26 @@ const fs = require('fs');
 const readline = require('readline');
 const { google } = require('googleapis');
 const parseMessage = require('gmail-api-parse-message');
-
+const decomment = require('decomment');
+const striptags = require('striptags');
 // If modifying these scopes, delete token.json.
 const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
 // The file token.json stores the user's access and refresh tokens, and is
 // created automatically when the authorization flow completes for the first
 // time.
 const TOKEN_PATH = 'token.json';
+const SEARCH_WORDS = ['casher', 'kosher', 'mehadrin', 'b60', 'permitido', 'kashrus'];
+
+Array.prototype.unique = function () {
+  let a = this.concat();
+  for (let i = 0; i < a.length; ++i) {
+    for (let j = i + 1; j < a.length; ++j) {
+      if (a[i] === a[j])
+        a.splice(j--, 1);
+    }
+  }
+  return a;
+};
 
 inicializar();
 
@@ -72,72 +85,114 @@ function getNewToken(oAuth2Client, callback) {
 }
 
 /**
- * Lists the labels in the user's account.
+ * Lists the mails in the user's account matching the requested parameters.
  *
  * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
  */
 async function listMessages(auth) {
   try {
     const gmail = google.gmail({ version: 'v1', auth });
-    let result = await gmail.users.messages.list({
-      userId: 'me',
-      q: 'oppenheimer'
-    });
     
-    console.log("starting loop", new Date());
+    const messagesArraysPromises = SEARCH_WORDS.map(async word => {
+      return await gmail.users.messages.list({
+        userId: 'me',
+        q: word
+      });
+    });
 
-    const promises = result.data.messages.map(async message => {
+    let messageIds = [];
+    const result = await Promise.all(messagesArraysPromises);
+    result.map(res => res.data.messages.map(m => m.id))
+      .forEach(arr => {
+        messageIds = [...messageIds, ...arr]
+      });
+    messageIds = messageIds.unique();
+
+    // no puedo usar la logica en paralelo, porque excede el numero de request x segundo...
+    // const promises = messageIds.map(async id => {
+    //   const mh = await gmail.users.messages.get({
+    //     id: id,
+    //     userId: 'me'
+    //   });
+    //   const msgParsed = parseMessage(mh.data);
+    //   return {
+    //     from: msgParsed.headers.from, 
+    //     to: msgParsed.headers.to, 
+    //     date: msgParsed.headers.date, 
+    //     textHtml: msgParsed.textHtml,
+    //     subject: msgParsed.headers.subject
+    //   };
+    // });
+    // const msgsObjArr = await Promise.all(promises);
+    let mails = [];
+
+    for (id of messageIds) {
       const mh = await gmail.users.messages.get({
-        id: message.id,
+        id: id,
         userId: 'me'
       });
       const msgParsed = parseMessage(mh.data);
-      return {
-        from: msgParsed.headers.from, 
-        to: msgParsed.headers.to, 
-        date: msgParsed.headers.date, 
+      mails.push({
+        from: msgParsed.headers.from,
+        to: msgParsed.headers.to,
+        date: msgParsed.headers.date,
         textHtml: msgParsed.textHtml,
         subject: msgParsed.headers.subject
-      };
-      // return mh.data.payload.headers.find(h => h.name === "From").value
-    });
-
-    // const froms = await Promise.all(promises);
-    // const uniqueArray = froms.filter((from, i) => {
-    //   return froms.indexOf(from) == i;
-    // });
-    // console.log("froms", uniqueArray);
-    // console.log("loop end", new Date());
-
-    const msgsObjArr = await Promise.all(promises);
-    writeResult(msgsObjArr);
+      });
+    }
+    writeResult(mails);
 
   } catch (error) {
     return console.log('The API returned an error: ' + error);
   }
 }
 
-async function writeResult(messagesArray){
-  let resultContent = `<html><head/>
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+async function writeResult(messagesArray) {
+  
+  messagesArray.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  let resultContent = `<html><head id='principal'/>
   </head>
-  <body style='padding:10px;'>`;
+  <body style='padding:10px !important;background-color:firebrick;font-family:arial, sans-serif'>`;
+  resultContent += `<div class="my-great-card">
+    <div class="my-great-card-body">
+    <h3 class="my-great-card-title">Resultado de busqueda en base a las palabras:</h3>
+    <h4 class="my-great-text-muted my-great-mb-1">${SEARCH_WORDS.join(", ")}</h4>
+    </div>
+  </div>
+  <br />`;
+
   messagesArray.forEach(e => {
-    resultContent+= `
-    <div class="card">
-      <div class="card-body">
-        <span class="text-muted">${e.date}</span>
-        <h5 class="card-title">${e.subject}</h5>
-        <h6 class="text-muted mb-1">From: ${e.from.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</h6>
-        <h6 class="mb-2 text-muted">To: ${e.to.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</h6>
-        <p class="card-text">${e.textHtml}</p>
+    let t = "-sin información-";
+    if(e.textHtml!==undefined){
+      t = decomment(e.textHtml);
+      t = striptags(t, ['a', 'div','p','h1','h2','h3','h4','h5','h6','hr','br','b','ul','li','blockquote','span','font']);
+      SEARCH_WORDS.forEach(word=>{
+        const regex = new RegExp(word, "gi");
+        t = t.replace(regex, `<span style='background-color:darksalmon;'>${word}</span>`);
+      });
+    }
+    resultContent += `
+    <div class="my-great-card">
+      <div class="my-great-card-body">
+        <span class="my-great-text-muted">${new Date(e.date).toString()}</span>
+        <h3 class="my-great-card-title">${e.subject}</h5>
+        <h4 class="my-great-text-muted my-great-mb-1">From: ${e.from !== undefined ? e.from.replace(/</g, '&lt;').replace(/>/g, '&gt;') : "-sin información-"}</h6>
+        <h4 class="my-great-mb-2 my-great-text-muted">To: ${e.to !== undefined ? e.to.replace(/</g, '&lt;').replace(/>/g, '&gt;') : "-sin información-"}</h6>
+        <div>${t}</div>
       </div>
     </div>
     `;
-    resultContent+= "<br />"
+    resultContent += "<br />"
   });
-  resultContent+= "</body></html>";
-  fs.writeFile(`resultado_${new Date().getTime()}.html`, resultContent, (err) => {
+  resultContent += `
+  <script>
+    document.querySelectorAll("style").forEach(s=>s.remove());
+    document.querySelector("head#principal").innerHTML = "<style>.my-great-card{position: relative;display: flex;flex-direction: column;min-width: 0;word-wrap: break-word;background-color: #fff;background-clip: border-box;border: 1px solid rgba(0,0,0,.125);border-radius: .25rem;box-sizing: border-box;}.my-great-card-body{flex: 1 1 auto;padding: 1.25rem;}.my-great-card-title{margin-bottom: .75rem !important;margin-top:0.25rem !important;}.my-great-text-muted{color: #6c757d!important;}.my-great-mb-1{margin-bottom: .25rem!important;margin-top:0.25rem !important;}.my-great-mb-2{margin-bottom: .5rem!important;margin-top:0.25rem !important;}</style>";
+  </script>`;
+  
+  resultContent += "</body></html>";
+  fs.writeFile(`results/resultado_${new Date().getTime()}.html`, resultContent, (err) => {
     if (err) return console.error(err);
     console.log('se grabo el resultado en un archivo html');
   })
