@@ -96,7 +96,8 @@ async function listMessages(auth) {
         from: msgParsed.headers.from, 
         to: msgParsed.headers.to, 
         date: msgParsed.headers.date, 
-        textHtml: msgParsed.textHtml
+        textHtml: msgParsed.textHtml,
+        subject: msgParsed.headers.subject
       };
       // return mh.data.payload.headers.find(h => h.name === "From").value
     });
@@ -117,15 +118,23 @@ async function listMessages(auth) {
 }
 
 async function writeResult(messagesArray){
-  let resultContent = "<html><body style='padding:10px;'>";
+  let resultContent = `<html><head/>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  </head>
+  <body style='padding:10px;'>`;
   messagesArray.forEach(e => {
-    resultContent+= `<div style='border: 1px solid #009;padding: 3px;font-family: sans-serif;color: #009;'>
-    <p>Date: ${e.date}</p>
-    <p>From: '${e.from.replace(/</g,'&lt;').replace(/>/g,'&gt;')}'</p>
-    <p>To: '${e.to.replace(/</g,'&lt;').replace(/>/g,'&gt;')}'</p>
-    </div>`;
-    resultContent+= e.textHtml;
-    resultContent+= "<hr style='height: 3px;background-color: #009;margin: 2rem 0;' />"
+    resultContent+= `
+    <div class="card">
+      <div class="card-body">
+        <span class="text-muted">${e.date}</span>
+        <h5 class="card-title">${e.subject}</h5>
+        <h6 class="text-muted mb-1">From: ${e.from.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</h6>
+        <h6 class="mb-2 text-muted">To: ${e.to.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</h6>
+        <p class="card-text">${e.textHtml}</p>
+      </div>
+    </div>
+    `;
+    resultContent+= "<br />"
   });
   resultContent+= "</body></html>";
   fs.writeFile(`resultado_${new Date().getTime()}.html`, resultContent, (err) => {
