@@ -10,7 +10,8 @@ const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
 // created automatically when the authorization flow completes for the first
 // time.
 const TOKEN_PATH = 'token.json';
-const SEARCH_WORDS = ['casher', 'kosher', 'mehadrin', 'b60', 'permitido', 'kashrus', "envios"];
+// const SEARCH_WORDS = ['casher', 'kosher', 'mehadrin', 'b60', 'permitido', 'kashrus', "envios"];
+const SEARCH_WORDS = ['Envios Ajdut Kosher'];
 
 Array.prototype.unique = function () {
   let a = this.concat();
@@ -167,10 +168,17 @@ async function writeResult(messagesArray) {
     if(e.textHtml!==undefined){
       t = decomment(e.textHtml);
       t = striptags(t, ['a', 'div','p','h1','h2','h3','h4','h5','h6','hr','br','b','ul','li','blockquote','span','font']);
+      t = striptags(t, ["td"], '\n');
+      
       SEARCH_WORDS.forEach(word=>{
         const regex = new RegExp(word, "gi");
         t = t.replace(regex, `<span style='background-color:darksalmon;'>${word}</span>`);
       });
+      //and this is for getting the email clear
+      const regexEmail = new RegExp("Email: ", "gi");
+      t = t.replace(regexEmail, "<br />Email: <span style='background-color:darksalmon;'>");
+      const regexMensaje = new RegExp("Mensaje: ", "gi");
+      t = t.replace(regexMensaje, "</span><br />Mensaje");
     }
     resultContent += `
     <div class="my-great-card">
