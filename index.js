@@ -10,8 +10,8 @@ const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
 // created automatically when the authorization flow completes for the first
 // time.
 const TOKEN_PATH = 'token.json';
-// const SEARCH_WORDS = ['casher', 'kosher', 'mehadrin', 'b60', 'permitido', 'kashrus', "envios"];
-const SEARCH_WORDS = ['Envios Ajdut Kosher'];
+const SEARCH_WORDS = ['casher', 'kosher', 'mehadrin', 'b60', 'permitido', 'kashrus', "envios ajdut kosher"];
+// const SEARCH_WORDS = ['envios ajdut kosher'];
 
 Array.prototype.unique = function () {
   let a = this.concat();
@@ -85,6 +85,15 @@ function getNewToken(oAuth2Client, callback) {
   });
 }
 
+async function getMessages(gmail, word, pToken) {
+  const req = {
+    userId: 'me',
+    q: word
+  };
+  if (pToken) req.pageToken = pToken;
+  return await gmail.users.messages.list(req);
+}
+
 /**
  * Lists the mails in the user's account matching the requested parameters.
  *
@@ -95,15 +104,19 @@ async function listMessages(auth) {
     const gmail = google.gmail({ version: 'v1', auth });
     
     const messagesArraysPromises = SEARCH_WORDS.map(async word => {
-      return await gmail.users.messages.list({
-        userId: 'me',
-        q: word
-      });
+      let msgs = [];
+      let response = await getMessages(gmail, word);
+      msgs = response.data.messages;
+      while(response.data.nextPageToken){
+        response = await getMessages(gmail, word, response.data.nextPageToken);
+        msgs = msgs.concat(response.data.messages);
+      }
+      return msgs;
     });
 
     let messageIds = [];
-    const result = await Promise.all(messagesArraysPromises);
-    result.map(res => res.data.messages.map(m => m.id))
+    result = await Promise.all(messagesArraysPromises);
+    result.map(res => res.map(m => m.id))
       .forEach(arr => {
         messageIds = [...messageIds, ...arr]
       });
@@ -154,19 +167,31 @@ async function writeResult(messagesArray) {
 
   let resultContent = `<html><head id='principal'/>
   </head>
-  <body style='padding:10px !important;background-color:firebrick;font-family:arial, sans-serif'>`;
+  <body style='padding:10px !important;background-color:firebrick;font-family:arial, sans-serif'>
+    `;
   resultContent += `<div class="my-great-card">
     <div class="my-great-card-body">
     <h3 class="my-great-card-title">Resultado de busqueda en base a las palabras:</h3>
     <h4 class="my-great-text-muted my-great-mb-1">${SEARCH_WORDS.join(", ")}</h4>
     </div>
   </div>
+  <br />
+  <div style="padding:15px; background-color:white;border:solid black 1px; border-radius:5px;">
+    <h4 class="my-great-text-muted my-great-mb-1">Lista de emails extraidos de <strong>Envios Ajdut Kosher</strong></h4>
+    <ul style="list-style-type: none;" id="missmails"></ul>
+  </div>
   <br />`;
 
   messagesArray.forEach(e => {
     let t = "-sin información-";
     if(e.textHtml!==undefined){
-      t = decomment(e.textHtml);
+      // console.log(e.textHtml);
+      try{
+        t = decomment(e.textHtml);
+      }catch(err){
+        console.error(err);
+        return;
+      }
       t = striptags(t, ['a', 'div','p','h1','h2','h3','h4','h5','h6','hr','br','b','ul','li','blockquote','span','font']);
       t = striptags(t, ["td"], '\n');
       
@@ -176,7 +201,7 @@ async function writeResult(messagesArray) {
       });
       //and this is for getting the email clear
       const regexEmail = new RegExp("Email: ", "gi");
-      t = t.replace(regexEmail, "<br />Email: <span style='background-color:darksalmon;'>");
+      t = t.replace(regexEmail, "<br />Email: <span class='este-mail-tomalo-en-cuenta' style='background-color:darksalmon;'>");
       const regexMensaje = new RegExp("Mensaje: ", "gi");
       t = t.replace(regexMensaje, "</span><br />Mensaje");
     }
@@ -197,7 +222,13 @@ async function writeResult(messagesArray) {
   <script>
     document.querySelectorAll("style").forEach(s=>s.remove());
     document.querySelector("head#principal").innerHTML = "<style>.my-great-card{position: relative;display: flex;flex-direction: column;min-width: 0;word-wrap: break-word;background-color: #fff;background-clip: border-box;border: 1px solid rgba(0,0,0,.125);border-radius: .25rem;box-sizing: border-box;}.my-great-card-body{flex: 1 1 auto;padding: 1.25rem;}.my-great-card-title{margin-bottom: .75rem !important;margin-top:0.25rem !important;}.my-great-text-muted{color: #6c757d!important;}.my-great-mb-1{margin-bottom: .25rem!important;margin-top:0.25rem !important;}.my-great-mb-2{margin-bottom: .5rem!important;margin-top:0.25rem !important;}</style>";
+    document.querySelectorAll(".este-mail-tomalo-en-cuenta").forEach(mail=>{
+      const el = document.createElement("li");
+      el.innerHTML = mail.innerHTML.trim();
+      document.getElementById("missmails").appendChild(el);
+    });
   </script>`;
+  
   
   resultContent += "</body></html>";
   fs.writeFile(`results/resultado_${new Date().getTime()}.html`, resultContent, (err) => {
