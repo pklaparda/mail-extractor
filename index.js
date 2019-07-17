@@ -10,8 +10,8 @@ const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
 // created automatically when the authorization flow completes for the first
 // time.
 const TOKEN_PATH = 'token.json';
-const SEARCH_WORDS = ['casher', 'kosher', 'mehadrin', 'b60', 'permitido', 'kashrus', "envios ajdut kosher"];
-// const SEARCH_WORDS = ['envios ajdut kosher'];
+// const SEARCH_WORDS = ['casher', 'kosher', 'mehadrin', 'b60', 'permitido', 'kashrus', "envios ajdut kosher"];
+const SEARCH_WORDS = ['hola'];
 
 Array.prototype.unique = function () {
   let a = this.concat();
@@ -108,8 +108,12 @@ async function listMessages(auth) {
       let response = await getMessages(gmail, word);
       msgs = response.data.messages;
       while(response.data.nextPageToken){
-        response = await getMessages(gmail, word, response.data.nextPageToken);
-        msgs = msgs.concat(response.data.messages);
+        try {
+          response = await getMessages(gmail, word, response.data.nextPageToken);
+          msgs = msgs.concat(response.data.messages);
+        } catch (error) {
+          console.log("error en List messages: ", error);          
+        }
       }
       return msgs;
     });
@@ -141,18 +145,22 @@ async function listMessages(auth) {
     let mails = [];
 
     for (id of messageIds) {
-      const mh = await gmail.users.messages.get({
-        id: id,
-        userId: 'me'
-      });
-      const msgParsed = parseMessage(mh.data);
-      mails.push({
-        from: msgParsed.headers.from,
-        to: msgParsed.headers.to,
-        date: msgParsed.headers.date,
-        textHtml: msgParsed.textHtml,
-        subject: msgParsed.headers.subject
-      });
+      try {
+        const mh = await gmail.users.messages.get({
+          id: id,
+          userId: 'me'
+        });
+        const msgParsed = parseMessage(mh.data);
+        mails.push({
+          from: msgParsed.headers.from,
+          to: msgParsed.headers.to,
+          date: msgParsed.headers.date,
+          textHtml: msgParsed.textHtml,
+          subject: msgParsed.headers.subject
+        });
+      } catch (error) {
+        console.log("error en get message: ", error);        
+      }
     }
     writeResult(mails);
 
