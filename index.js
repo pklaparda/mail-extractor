@@ -10,8 +10,8 @@ const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
 // created automatically when the authorization flow completes for the first
 // time.
 const TOKEN_PATH = 'token.json';
-// const SEARCH_WORDS = ['casher', 'kosher', 'mehadrin', 'b60', 'permitido', 'kashrus', "envios ajdut kosher"];
-const SEARCH_WORDS = ['hola'];
+const SEARCH_WORDS = ["envios ajdut kosher"];
+// const SEARCH_WORDS = ['hola'];
 
 Array.prototype.unique = function () {
   let a = this.concat();
@@ -102,7 +102,7 @@ async function getMessages(gmail, word, pToken) {
 async function listMessages(auth) {
   try {
     const gmail = google.gmail({ version: 'v1', auth });
-    
+    console.log("Inicio de llamadas a listar mensajes",new Date());
     const messagesArraysPromises = SEARCH_WORDS.map(async word => {
       let msgs = [];
       let response = await getMessages(gmail, word);
@@ -117,7 +117,7 @@ async function listMessages(auth) {
       }
       return msgs;
     });
-
+    console.log("Fin de llamadas a listar mensajes",new Date());
     let messageIds = [];
     result = await Promise.all(messagesArraysPromises);
     result.map(res => res.map(m => m.id))
@@ -125,7 +125,8 @@ async function listMessages(auth) {
         messageIds = [...messageIds, ...arr]
       });
     messageIds = messageIds.unique();
-
+    console.log("la lista de ids de mensajes fue unificada");
+    
     // no puedo usar la logica en paralelo, porque excede el numero de request x segundo...
     // const promises = messageIds.map(async id => {
     //   const mh = await gmail.users.messages.get({
@@ -143,7 +144,7 @@ async function listMessages(auth) {
     // });
     // const msgsObjArr = await Promise.all(promises);
     let mails = [];
-
+    console.log("Inicio de llamadas a Get por cada id de mensaje", new Date());
     for (id of messageIds) {
       try {
         const mh = await gmail.users.messages.get({
@@ -159,13 +160,15 @@ async function listMessages(auth) {
           subject: msgParsed.headers.subject
         });
       } catch (error) {
-        console.log("error en get message: ", error);        
+        console.log("Error en get mensaje ", new Date());
+        console.log("Error en get message: ", error);        
       }
     }
+    console.log("Fin de llamadas a Get por cada id de mensaje", new Date());
     writeResult(mails);
 
   } catch (error) {
-    return console.log('The API returned an error: ' + error);
+    return console.log('The API returned an error: ', error);
   }
 }
 
@@ -190,6 +193,7 @@ async function writeResult(messagesArray) {
   </div>
   <br />`;
 
+  console.log("Inicio de dibujado", new Date());
   messagesArray.forEach(e => {
     let t = "-sin información-";
     if(e.textHtml!==undefined){
@@ -197,6 +201,7 @@ async function writeResult(messagesArray) {
       try{
         t = decomment(e.textHtml);
       }catch(err){
+        console.log("Error al dibujar ", new Date());
         console.error(err);
         return;
       }
@@ -241,6 +246,6 @@ async function writeResult(messagesArray) {
   resultContent += "</body></html>";
   fs.writeFile(`results/resultado_${new Date().getTime()}.html`, resultContent, (err) => {
     if (err) return console.error(err);
-    console.log('se grabo el resultado en un archivo html');
+    console.log('se grabo el resultado en un archivo html', new Date());
   })
 }
