@@ -235,10 +235,17 @@ async function writeResult(messagesArray) {
   <script>
     document.querySelectorAll("style").forEach(s=>s.remove());
     document.querySelector("head#principal").innerHTML = "<style>.my-great-card{position: relative;display: flex;flex-direction: column;min-width: 0;word-wrap: break-word;background-color: #fff;background-clip: border-box;border: 1px solid rgba(0,0,0,.125);border-radius: .25rem;box-sizing: border-box;}.my-great-card-body{flex: 1 1 auto;padding: 1.25rem;}.my-great-card-title{margin-bottom: .75rem !important;margin-top:0.25rem !important;}.my-great-text-muted{color: #6c757d!important;}.my-great-mb-1{margin-bottom: .25rem!important;margin-top:0.25rem !important;}.my-great-mb-2{margin-bottom: .5rem!important;margin-top:0.25rem !important;}</style>";
+    const re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    let mails = [];
     document.querySelectorAll(".este-mail-tomalo-en-cuenta").forEach(mail=>{
-      const el = document.createElement("li");
-      el.innerHTML = mail.innerHTML.trim();
-      document.getElementById("missmails").appendChild(el);
+      const mailText = mail.innerHTML.trim(); 
+      if (re.test(mailText) && !mails.includes(mailText)){
+        mails.push(mailText);
+        const el = document.createElement("li");
+        el.innerHTML = mailText;
+        document.getElementById("missmails").appendChild(el);  
+      }
+      
     });
   </script>`;
   
