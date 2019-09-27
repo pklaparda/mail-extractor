@@ -10,8 +10,7 @@ const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
 // created automatically when the authorization flow completes for the first
 // time.
 const TOKEN_PATH = 'token.json';
-const SEARCH_WORDS = ["envios ajdut kosher"];
-// const SEARCH_WORDS = ['hola'];
+const SEARCH_WORDS = ["envios consulta"];
 
 Array.prototype.unique = function () {
   let a = this.concat();
@@ -24,9 +23,9 @@ Array.prototype.unique = function () {
   return a;
 };
 
-inicializar();
+initt();
 
-function inicializar() {
+function initt() {
   // Load client secrets from a local file.
   fs.readFile('credentials.json', (err, content) => {
     if (err) return console.log('Error loading client secret file:', err);
@@ -102,7 +101,7 @@ async function getMessages(gmail, word, pToken) {
 async function listMessages(auth) {
   try {
     const gmail = google.gmail({ version: 'v1', auth });
-    console.log("Inicio de llamadas a listar mensajes",new Date());
+    console.log("Start List messages",new Date());
     const messagesArraysPromises = SEARCH_WORDS.map(async word => {
       let msgs = [];
       let response = await getMessages(gmail, word);
@@ -112,12 +111,12 @@ async function listMessages(auth) {
           response = await getMessages(gmail, word, response.data.nextPageToken);
           msgs = msgs.concat(response.data.messages);
         } catch (error) {
-          console.log("error en List messages: ", error);          
+          console.log("error in List messages: ", error);          
         }
       }
       return msgs;
     });
-    console.log("Fin de llamadas a listar mensajes",new Date());
+    console.log("End of List messages",new Date());
     let messageIds = [];
     result = await Promise.all(messagesArraysPromises);
     result.map(res => res.map(m => m.id))
@@ -125,9 +124,9 @@ async function listMessages(auth) {
         messageIds = [...messageIds, ...arr]
       });
     messageIds = messageIds.unique();
-    console.log("la lista de ids de mensajes fue unificada");
+    console.log("messages ids list was unified");
     
-    // no puedo usar la logica en paralelo, porque excede el numero de request x segundo...
+    // cannot run in parallel, excedes max requests per second
     // const promises = messageIds.map(async id => {
     //   const mh = await gmail.users.messages.get({
     //     id: id,
@@ -144,7 +143,7 @@ async function listMessages(auth) {
     // });
     // const msgsObjArr = await Promise.all(promises);
     let mails = [];
-    console.log("Inicio de llamadas a Get por cada id de mensaje", new Date());
+    console.log("Start Get calls per message id", new Date());
     for (id of messageIds) {
       try {
         const mh = await gmail.users.messages.get({
@@ -160,11 +159,11 @@ async function listMessages(auth) {
           subject: msgParsed.headers.subject
         });
       } catch (error) {
-        console.log("Error en get mensaje ", new Date());
-        console.log("Error en get message: ", error);        
+        console.log("Error on Get message: ", new Date());
+        console.log("Error on Get message: ", error);        
       }
     }
-    console.log("Fin de llamadas a Get por cada id de mensaje", new Date());
+    console.log("End Get calls per message id", new Date());
     writeResult(mails);
 
   } catch (error) {
@@ -182,26 +181,26 @@ async function writeResult(messagesArray) {
     `;
   resultContent += `<div class="my-great-card">
     <div class="my-great-card-body">
-    <h3 class="my-great-card-title">Resultado de busqueda en base a las palabras:</h3>
+    <h3 class="my-great-card-title">Search result based on words:</h3>
     <h4 class="my-great-text-muted my-great-mb-1">${SEARCH_WORDS.join(", ")}</h4>
     </div>
   </div>
   <br />
   <div style="padding:15px; background-color:white;border:solid black 1px; border-radius:5px;">
-    <h4 class="my-great-text-muted my-great-mb-1">Lista de emails extraidos de <strong>Envios Ajdut Kosher</strong></h4>
+    <h4 class="my-great-text-muted my-great-mb-1">List of extracted email addresses</h4>
     <ul style="list-style-type: none;" id="missmails"></ul>
   </div>
   <br />`;
 
-  console.log("Inicio de dibujado", new Date());
+  console.log("Start draw", new Date());
   messagesArray.forEach(e => {
-    let t = "-sin información-";
+    let t = "-no info-";
     if(e.textHtml!==undefined){
       // console.log(e.textHtml);
       try{
         t = decomment(e.textHtml);
       }catch(err){
-        console.log("Error al dibujar ", new Date());
+        console.log("Error on draw", new Date());
         console.error(err);
         return;
       }
@@ -214,7 +213,7 @@ async function writeResult(messagesArray) {
       });
       //and this is for getting the email clear
       const regexEmail = new RegExp("Email: ", "gi");
-      t = t.replace(regexEmail, "<br />Email: <span class='este-mail-tomalo-en-cuenta' style='background-color:darksalmon;'>");
+      t = t.replace(regexEmail, "<br />Email: <span class='take-this-address-in-consideration' style='background-color:darksalmon;'>");
       const regexMensaje = new RegExp("Mensaje: ", "gi");
       t = t.replace(regexMensaje, "</span><br />Mensaje");
     }
@@ -223,8 +222,8 @@ async function writeResult(messagesArray) {
       <div class="my-great-card-body">
         <span class="my-great-text-muted">${new Date(e.date).toString()}</span>
         <h3 class="my-great-card-title">${e.subject}</h5>
-        <h4 class="my-great-text-muted my-great-mb-1">From: ${e.from !== undefined ? e.from.replace(/</g, '&lt;').replace(/>/g, '&gt;') : "-sin información-"}</h6>
-        <h4 class="my-great-mb-2 my-great-text-muted">To: ${e.to !== undefined ? e.to.replace(/</g, '&lt;').replace(/>/g, '&gt;') : "-sin información-"}</h6>
+        <h4 class="my-great-text-muted my-great-mb-1">From: ${e.from !== undefined ? e.from.replace(/</g, '&lt;').replace(/>/g, '&gt;') : "-no info-"}</h6>
+        <h4 class="my-great-mb-2 my-great-text-muted">To: ${e.to !== undefined ? e.to.replace(/</g, '&lt;').replace(/>/g, '&gt;') : "-no info-"}</h6>
         <div>${t}</div>
       </div>
     </div>
@@ -237,7 +236,7 @@ async function writeResult(messagesArray) {
     document.querySelector("head#principal").innerHTML = "<style>.my-great-card{position: relative;display: flex;flex-direction: column;min-width: 0;word-wrap: break-word;background-color: #fff;background-clip: border-box;border: 1px solid rgba(0,0,0,.125);border-radius: .25rem;box-sizing: border-box;}.my-great-card-body{flex: 1 1 auto;padding: 1.25rem;}.my-great-card-title{margin-bottom: .75rem !important;margin-top:0.25rem !important;}.my-great-text-muted{color: #6c757d!important;}.my-great-mb-1{margin-bottom: .25rem!important;margin-top:0.25rem !important;}.my-great-mb-2{margin-bottom: .5rem!important;margin-top:0.25rem !important;}</style>";
     const re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
     let mails = [];
-    document.querySelectorAll(".este-mail-tomalo-en-cuenta").forEach(mail=>{
+    document.querySelectorAll(".take-this-address-in-consideration").forEach(mail=>{
       const mailText = mail.innerHTML.trim(); 
       if (re.test(mailText) && !mails.includes(mailText)){
         mails.push(mailText);
@@ -251,8 +250,8 @@ async function writeResult(messagesArray) {
   
   
   resultContent += "</body></html>";
-  fs.writeFile(`results/resultado_${new Date().getTime()}.html`, resultContent, (err) => {
+  fs.writeFile(`results/result_${new Date().getTime()}.html`, resultContent, (err) => {
     if (err) return console.error(err);
-    console.log('se grabo el resultado en un archivo html', new Date());
+    console.log('Success. The result is in an html file', new Date());
   })
 }
