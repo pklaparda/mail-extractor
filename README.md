@@ -1,5 +1,5 @@
 # Mail-extractor
-this project uses the gmail api to extract info about a google account
+this project uses the gmail api to extract info about a google account. The SEARCH_WORDS are harcoded.
 
 to run:
 1. Go to https://developers.google.com/gmail/api/quickstart/nodejs (with your google account)
