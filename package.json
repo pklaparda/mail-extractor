@@ -12,6 +12,6 @@
     "decomment": "^0.9.2",
     "gmail-api-parse-message": "^2.1.0",
     "googleapis": "^39.2.0",
-    "striptags": "^3.1.1"
+    "striptags": "^3.2.0"
   }
 }
